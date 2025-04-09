@@ -209,7 +209,6 @@ class GenEval(object):
         gt_crys,
         n_samples=1000,
         eval_model_name="mp20",
-        prob_cache_file="./prob_cache.pkl",
     ):
         self.crys = pred_crys
         self.gt_crys = gt_crys
@@ -226,7 +225,6 @@ class GenEval(object):
             raise Exception(
                 f"not enough valid crystals in the predicted set: {len(valid_crys)}/{n_samples}"
             )
-        self.prob_cache_file = prob_cache_file
 
     def get_validity(self):
         comp_valid = np.array([c.comp_valid for c in self.crys]).mean()
@@ -313,20 +311,18 @@ def process_gts(input_file, num_io_process=40):
 def main(input_file, output_file, dataset, gt_path, num_io_process=40, n_samples=1000):
     print("processing gt files ...")
     gt_crys = process_with_file_cache(
-        lambda: process_gts(gt_path), gt_path.replace(".csv", "new.pkl")
+        lambda: process_gts(gt_path), gt_path.replace(".csv", ".pkl")
     )
     print("num of gt structures:", len(gt_crys))
     print("processing pred files ...")
     pred_crys = process_pred_one(input_file, num_io_process)
     print("num of used structures:", len(pred_crys))
     print("computing metrics ...")
-    prob_cache_file = gt_path.replace(".csv", ".prob.pkl")
     eval_m = GenEval(
         pred_crys,
         gt_crys,
         n_samples=n_samples,
         eval_model_name=dataset,
-        prob_cache_file=prob_cache_file,
     )
     all_metrics = eval_m.get_metrics()
     all_metrics["pred_num"] = len(pred_crys)

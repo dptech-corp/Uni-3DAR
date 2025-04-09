@@ -4,7 +4,7 @@
 [ -z "${OMPI_COMM_WORLD_SIZE}" ] && OMPI_COMM_WORLD_SIZE=1
 [ -z "${OMPI_COMM_WORLD_RANK}" ] && OMPI_COMM_WORLD_RANK=0
 
-[ -z "${seed}" ] && seed=1
+[ -z "${seed}" ] && seed=2
 [ -z "${merge_level}" ] && merge_level=8
 
 [ -z "${data_path}" ] && data_path=None
@@ -49,8 +49,7 @@ torchrun --nproc_per_node=$n_gpu --nnodes=$OMPI_COMM_WORLD_SIZE  --node_rank=$OM
       --save-path $save_path --gzip \
       --grid-len 0.24  --xyz-resolution 0.01 --recycle 1  \
       --atom-type-key atom_type --atom-pos-key atom_pos --lattice-matrix-key lattice_matrix --allow-atoms all  --head-dropout 0.1 \
-      --crystal-pxrd-step 0.1 --crystal-pxrd-noise 0.1 \
-      --crystal-component 1 --crystal-component-sqrt --crystal-component-noise 0.1 --crystal-pxrd-threshold 5 --max-num-atom 128 \
+      --crystal-component 1 --crystal-component-sqrt --crystal-component-noise 0.1 --max-num-atom 128 \
       --finetune-from-model $1 \
       $more_args
 

@@ -4,7 +4,7 @@
 [ -z "${OMPI_COMM_WORLD_SIZE}" ] && OMPI_COMM_WORLD_SIZE=1
 [ -z "${OMPI_COMM_WORLD_RANK}" ] && OMPI_COMM_WORLD_RANK=0
 
-[ -z "${seed}" ] && seed=1
+[ -z "${seed}" ] && seed=2
 [ -z "${merge_level}" ] && merge_level=8
 
 [ -z "${data_path}" ] && data_path=None

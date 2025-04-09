@@ -106,6 +106,70 @@ base_dir=/your_folder_to_save/ batch_size=16 bash scripts/train_drug.sh ./drug_d
 Note: By default, we train DRUG using 8 GPUs, with a total batch size of `8 × 16 = 128`. You may adjust the batch size based on your available GPU configuration.
 
 
+Reproducing Results on MP20 (Crystal)
+-------------------------------------
+
+To reproduce results on the MP20 dataset using our pretrained model or train from scratch, please follow the instructions below.
+
+### Download Pretrained Model and Dataset
+
+Download the pretrained checkpoint (`mp20.pt`, `mp20_csp.pt` and `mp20_pxrd.pt`) and the dataset archive (`mp20_data.tar.gz`) from our [Hugging Face repository](https://huggingface.co/dptech/Uni-3DAR/tree/main). 
+
+First, you should extract the dataset, which will be used in both training and evaluation:
+
+```
+tar -xzvf mp20_data.tar.gz
+```
+
+### Inference with Pretrained Model
+
+For de-novo MP20 crystal generation:
+
+```
+bash scripts/inference_mp20.sh mp20.pt ./mp20_data/test.csv
+```
+
+For MP20 crystal structure prediction (CSP):
+
+```
+data_path=./mp20_data/ bash scripts/inference_mp20_csp.sh mp20_csp.pt
+```
+
+For MP20 PXRD-guided CSP:
+
+```
+data_path=./mp20_data/ bash scripts/inference_mp20_pxrd.sh mp20_pxrd.pt
+```
+
+### Train from Scratch
+
+
+For de-novo MP20 crystal generation training:
+
+```
+base_dir=/your_folder_to_save/ batch_size=16 bash scripts/train_mp20.sh ./mp20_data/ name_of_your_exp
+```
+
+Note: By default, we use 4 GPUs, with a total batch size of `4 × 16 = 64`. You may adjust the batch size based on your available GPU configuration.
+
+
+For MP20 CSP training:
+
+```
+base_dir=/your_folder_to_save/ batch_size=8 bash scripts/train_mp20_csp.sh ./mp20_data/ name_of_your_exp
+```
+
+Note: By default, we use 8 GPUs, with a total batch size of `8 × 8 = 64`. You may adjust the batch size based on your available GPU configuration.
+
+
+For MP20 PRXD-guided CSP training:
+
+```
+base_dir=/your_folder_to_save/ batch_size=8 bash scripts/train_mp20_pxrd.sh ./mp20_data/ name_of_your_exp
+```
+
+Note: By default, we use 8 GPUs, with a total batch size of `8 × 8 = 64`. You may adjust the batch size based on your available GPU configuration.
+
 
 Citation
 --------
