@@ -308,7 +308,13 @@ def cli_main(
 ) -> None:
     parser = options.get_training_parser()
     args = options.parse_args_and_arch(parser, modify_parser=modify_parser)
-    distributed_utils.call_main(args, main)
+    try:
+        distributed_utils.call_main(args, main)
+    finally:
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
+            time.sleep(1)
+            torch.distributed.destroy_process_group()
 
 
 if __name__ == "__main__":
