@@ -292,7 +292,9 @@ class Uni3DAR(BaseUnicoreModel):
             deterministic=self.args.finetune,
             causal=True,
         )
-        self.is_conditional = False
+        self.is_conditional = (
+            self.args.crystal_pxrd > 0 or self.args.crystal_component > 0
+        )
         self.norm = AdaNorm(emb_dim) if self.is_conditional else RMSNorm(emb_dim)
         self.tree_heads = nn.ModuleList(
             [
@@ -349,12 +351,16 @@ class Uni3DAR(BaseUnicoreModel):
         self.loss_ratio_tree = str_2_float_list(self.args.loss_ratio_tree)
         self.loss_ratio_atom = str_2_float_list(self.args.loss_ratio_atom)
         self.loss_ratio_xyz = str_2_float_list(self.args.loss_ratio_xyz)
+        self.loss_ratio_count = str_2_float_list(self.args.loss_ratio_count)
         self.loss_ratio_atom_target = str_2_float_list(self.args.loss_ratio_atom_target)
         self.loss_ratio_mol_target = str_2_float_list(self.args.loss_ratio_mol_target)
 
         self.tree_temperature = str_2_float_list(self.args.tree_temperature)
         self.atom_temperature = str_2_float_list(self.args.atom_temperature)
         self.xyz_temperature = str_2_float_list(self.args.xyz_temperature)
+        self.count_temperature = str_2_float_list(self.args.count_temperature)
+
+        self.init_crystal_cond_embeding()
 
         if self.args.mol_target_key is not None:
             self.mol_pred_head = ClassificationHead(
@@ -381,7 +387,8 @@ class Uni3DAR(BaseUnicoreModel):
         self.dtype = torch.float32
 
     def init_tree_and_space_embeding(self, data_type, task_name):
-        self.num_tree = 1
+        num_tree_mapper = {"crystal": 2}
+        self.num_tree = num_tree_mapper.get(data_type, 1)
         self.num_space = 1
 
         if self.num_tree > 1:
@@ -393,6 +400,41 @@ class Uni3DAR(BaseUnicoreModel):
             self.space_emb = Embedding(self.num_space, self.args.emb_dim)
         else:
             self.space_emb = None
+
+    def init_crystal_cond_embeding(self):
+        if self.args.data_type == "crystal":
+            self.atom_components_id = self.dictionary["[COMPONENTS]"]
+            self.atom_lattice_id = self.dictionary["[LATTICE_O]"]
+            if self.args.crystal_pxrd:
+                self.atom_pxrd_id_min = self.dictionary["[PXRD_0]"]
+                self.atom_pxrd_id_max = self.dictionary[
+                    f"[PXRD_{self.args.crystal_pxrd - 1}]"
+                ]
+            if self.args.crystal_component > 0:
+                self.atom_cnt_id_min = self.dictionary["[CNT_0]"]
+                self.atom_cnt_id_max = self.dictionary[
+                    f"[CNT_{self.dictionary.max_num_atom}]"
+                ]
+        if self.args.crystal_pxrd:
+            self.num_pxrd_per_token = int(
+                120 / self.args.crystal_pxrd_step / self.args.crystal_pxrd
+            )
+            self.pxrd_embed = nn.Sequential(
+                Linear(self.num_pxrd_per_token, self.args.emb_dim, init="bert"),
+                RMSNorm(self.args.emb_dim),
+                nn.GELU(),
+                Linear(self.args.emb_dim, self.args.emb_dim, bias=False, init="final"),
+            )
+            self.pxrd_gate = Linear(
+                self.args.emb_dim, self.args.emb_dim, bias=False, init="bert"
+            )
+        if self.args.crystal_component:
+            self.components_embed_tokens = nn.Sequential(
+                Linear(128, self.args.emb_dim, init="bert"),
+                RMSNorm(self.args.emb_dim),
+                nn.GELU(),
+                Linear(self.args.emb_dim, self.args.emb_dim, bias=False, init="final"),
+            )
 
     def half(self):
         super().half()
@@ -541,6 +583,35 @@ class Uni3DAR(BaseUnicoreModel):
         emb_x = F.dropout(emb_x, self.args.emb_dropout, self.training)
         return emb_x
 
+    def forward_crystal_cond(self, bsz, dec_y, decoder_input, pxrd, components):
+        c = 0
+        if self.args.crystal_pxrd:
+            pxrd_mask = (
+                (decoder_input.level == self.args.merge_level + 1)
+                & (decoder_input.type >= self.atom_pxrd_id_min)
+                & (decoder_input.type <= self.atom_pxrd_id_max)
+            )
+            pxrd_emb = self.pxrd_embed(pxrd.to(self.dtype)).view(-1, self.args.emb_dim)
+            pxrd_emb = F.dropout(pxrd_emb, self.args.emb_dropout, self.training)
+            dec_y[pxrd_mask] += pxrd_emb
+            cond = dec_y[pxrd_mask]
+            gate_cond = F.silu(self.pxrd_gate(cond))
+            n_cond = self.args.crystal_pxrd
+            c += (gate_cond * cond).view(-1, n_cond, self.args.emb_dim).sum(dim=1)
+        components_mask = decoder_input.type == self.atom_components_id
+        if components_mask.any():
+            comp_emb = self.components_embed_tokens(components.type_as(dec_y)).view(
+                -1, self.args.emb_dim
+            )
+            comp_emb = F.dropout(comp_emb, self.args.emb_dropout, self.training)
+            dec_y[components_mask] += comp_emb
+            c += comp_emb
+            is_cnt = (decoder_input.type >= self.atom_cnt_id_min) & (
+                decoder_input.type <= self.atom_cnt_id_max
+            )
+            c += dec_y[is_cnt]
+        return dec_y, c
+
     def forward_model(
         self,
         decoder_input,
@@ -549,11 +620,26 @@ class Uni3DAR(BaseUnicoreModel):
         decoder_input_max_len=None,
         kv_cache_list=None,
         need_norm=True,
+        **kwargs,
     ):
 
         dec_y = self.input_embedding(
             decoder_input,
         )
+        if ("pxrd" in kwargs and kwargs["pxrd"] is not None) or (
+            "components" in kwargs and kwargs["components"] is not None
+        ):
+            bsz = (
+                dec_y.size(0)
+                if decoder_input_len is None
+                else decoder_input_len.shape[0] - 1
+            )
+            dec_y, c = self.forward_crystal_cond(
+                bsz, dec_y, decoder_input, kwargs["pxrd"], kwargs["components"]
+            )
+            if decoder_input_len is not None:
+                repeats = decoder_input_len[1:] - decoder_input_len[:-1]
+                c = c.repeat_interleave(repeats, dim=0)
 
         self.rope.calc_and_cache(decoder_input.phy_pos / self.args.xyz_resolution)
         for i in range(self.args.recycle):
@@ -750,6 +836,10 @@ class Uni3DAR(BaseUnicoreModel):
                 decoder_input,
                 decoder_input_len=batched_data["decoder_input_len"],
                 decoder_input_max_len=int(batched_data["decoder_input_max_len"]),
+                pxrd=batched_data["pxrd"] if self.args.crystal_pxrd else None,
+                components=(
+                    batched_data["components"] if self.args.crystal_component else None
+                ),
             )
             gen_outputs = self.forward_gen_heads(
                 dec_y,

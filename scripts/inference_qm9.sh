@@ -1,6 +1,6 @@
 [ -z "${MASTER_PORT}" ] && MASTER_PORT=10088
 [ -z "${MASTER_IP}" ] && MASTER_IP=127.0.0.1
-[ -z "${n_gpu}" ] && n_gpu=$(nvidia-smi -L | wc -l)
+[ -z "${n_gpu}" ] && n_gpu=1
 [ -z "${OMPI_COMM_WORLD_SIZE}" ] && OMPI_COMM_WORLD_SIZE=1
 [ -z "${OMPI_COMM_WORLD_RANK}" ] && OMPI_COMM_WORLD_RANK=0
 
@@ -47,6 +47,7 @@ torchrun --nproc_per_node=$n_gpu --nnodes=$OMPI_COMM_WORLD_SIZE  --node_rank=$OM
       --data-buffer-size 32 --fixed-validation-seed 11 --batch-size-valid $((batch_size * 2)) \
       --seed $seed \
       --data-type $data_type --merge-level $merge_level  \
+      --grid-len 0.24  --xyz-resolution 0.01 --recycle 1  \
       --tree-temperature $tree_temperature --atom-temperature $atom_temperature --xyz-temperature $xyz_temperature --count-temperature $count_temperature \
       --num-samples $num_samples --rank-ratio $rank_ratio --rank-by $rank_by \
       --save-path $save_path \

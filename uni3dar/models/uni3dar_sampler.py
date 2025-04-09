@@ -8,6 +8,10 @@ from torch.nn import functional as F
 from .uni3dar import Uni3DAR, DecoderInputFeat, base_architecture
 from uni3dar.data.atom_data import atom_list
 from uni3dar.data.grid_utils import subcell_orders
+from uni3dar.data.crystal_data_utils import (
+    fit_parallelepiped_symmetric_right_hand,
+    get_crystal_cond,
+)
 import numpy as np
 import time
 
@@ -120,6 +124,37 @@ def results_from_predictions(
                 xyz_res.extend(cur_res)
                 xyz_res = "\n".join(xyz_res)
                 atom_results.append((xyz_res, score_to_sort, decoder_feat.shape[0]))
+        elif data_type == "crystal" and len(atom_id) > 0:
+            try:
+                lattice_mask = (level == minimum_level) & (
+                    decoder_feat[:, 3] == kwargs["atom_lattice_id"]
+                )
+                assert (
+                    lattice_mask.sum() == 8
+                ), "should be 8 lattice points, but got {}".format(
+                    lattice_mask.sum().item()
+                )
+                lattice_0, lattice_vectors = fit_parallelepiped_symmetric_right_hand(
+                    decoder_phy_pos[lattice_mask, :3].detach().cpu().numpy()
+                )
+                lattice_vectors = lattice_vectors - lattice_0
+                pos_arr = pos.float().detach().cpu().numpy() - lattice_0
+                try:
+                    from ase import Atoms
+
+                    structure = Atoms(
+                        symbols=atom_id,
+                        positions=pos_arr,
+                        cell=lattice_vectors,
+                        pbc=True,
+                    )
+                except:
+                    print("error in construct atoms", atom_id, pos_arr, lattice_vectors)
+                    continue
+                atom_results.append((structure, score_to_sort, decoder_feat.shape[0]))
+            except Exception as e:
+                # print(e)
+                continue
     atom_results = sorted(atom_results, key=lambda x: x[1], reverse=False)
     num_selected = int(len(atom_results) * rank_ratio)
     selected_results = atom_results[:num_selected]
@@ -529,6 +564,9 @@ class Uni3DARSampler(Uni3DAR):
 
         atom_type_mask[self.atom_null_id] = False
 
+        if self.args.data_type == "crystal":
+            atom_type_mask[self.atom_lattice_id] = False
+
         if atom_constraint is not None:
             cond_vars["atom_constraint"] = torch.zeros(
                 batch_size,
@@ -540,6 +578,10 @@ class Uni3DARSampler(Uni3DAR):
 
             for atom_id in atom_constraint:
                 cond_vars["atom_constraint"][:, atom_id, :] += 1
+            if self.args.data_type == "crystal":
+                # only 8 lattice points
+                cond_vars["atom_constraint"][:, :, 0] = 0
+                cond_vars["atom_constraint"][:, self.atom_lattice_id, 0] = 8
 
         def atom_prob_proc(probs):
             probs[:, atom_type_mask] = 0
@@ -653,10 +695,24 @@ class Uni3DARSampler(Uni3DAR):
             "total_atoms": torch.zeros(batch_size, dtype=torch.int32, device=device),
             "acc_tokens": torch.zeros(batch_size, dtype=torch.int32, device=device),
         }
+        if self.args.data_type == "crystal":
+            count_vars["known_atoms"][:, 0] = 8
 
         if data is not None:
-            # TODO: release for code for conditional sampling
-            pass
+            if self.args.data_type == "crystal":
+                (
+                    kv_cache,
+                    cond,
+                    num_atoms,
+                ) = self.crystal_cond_prefilling_with_data(
+                    data,
+                    batch_size,
+                    device,
+                    kv_cache,
+                )
+                cond_vars["cond"] = cond.unsqueeze(1)
+                # set the total atoms to the known atoms
+                count_vars["known_atoms"][:, 1] = num_atoms
 
         (decoder_feat, decoder_phy_pos, raw_feat) = self.calc_root_level(
             self.args.merge_level,
@@ -833,6 +889,7 @@ class Uni3DARSampler(Uni3DAR):
             self.atom_level_index,
             finished_results,
             self.args.rank_ratio,
+            atom_lattice_id=self.atom_lattice_id,
         )
         num_samples = len(xyz)
         print(
@@ -850,6 +907,52 @@ class Uni3DARSampler(Uni3DAR):
         )
         # return the processed results
         return xyz, score
+
+    def crystal_cond_prefilling_with_data(
+        self,
+        data,
+        batch_size,
+        device,
+        kv_cache,
+    ):
+
+        atom_type = data[self.args.atom_type_key]
+        data = get_crystal_cond(
+            self.args,
+            data,
+            atom_type,
+            False,
+            self.dictionary,
+            self.xyz_null_id,
+            bsz=batch_size,
+        )
+        for key in data:
+            data[key] = torch.from_numpy(data[key]).to(device)
+
+        dummy_input = DecoderInputFeat(
+            data["decoder_type"],
+            data["decoder_xyz"],
+            data["decoder_level"],
+            data["decoder_phy_pos"],
+            torch.zeros_like(data["decoder_type"]),
+            torch.zeros_like(data["decoder_type"]),
+            data["decoder_remaining_atoms"],
+            data["decoder_remaining_tokens"],
+            data["decoder_count"],
+        )
+
+        with torch.no_grad():
+            _, c = self.forward_model(
+                dummy_input,
+                kv_cache_list=kv_cache,
+                need_norm=False,
+                pxrd=(data["pxrd"] if self.args.crystal_pxrd > 0 else None),
+                components=(
+                    data["components"] if self.args.crystal_component > 0 else None
+                ),
+            )
+
+        return kv_cache, c, len(atom_type)
 
 
 @register_model_architecture("uni3dar_sampler", "uni3dar_sampler")

@@ -49,6 +49,38 @@ class RawAtomFeature:
             atom_type,
         )
 
+    def init_from_crystal(
+        atom_pos, atom_type, lattice_matrix, is_train, crystal_random_shift_prob
+    ):
+        num_lattice = 8
+        lattice_type = ["[LATTICE_O]"] * num_lattice
+        lattice_pos = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+                [1, 1, 0],
+                [1, 0, 1],
+                [0, 1, 1],
+                [1, 1, 1],
+            ]
+        )
+        atom_type = lattice_type + atom_type
+        atom_pos = np.concatenate([lattice_pos, atom_pos], axis=0)
+
+        atom_type = np.array(atom_type, dtype="<U15")
+        atom_pos = np.array(atom_pos, dtype=np.float64).reshape(-1, 3)
+        if is_train:
+            # here use rand(1), not rand(3).
+            # the atoms will random shift in diagonal direction, not random direction
+            shift_flag = np.random.rand()
+            if shift_flag < crystal_random_shift_prob:
+                atom_pos[num_lattice:] = atom_pos[num_lattice:] + np.random.rand()
+        atom_pos[num_lattice:] = atom_pos[num_lattice:] % 1.0
+        atom_pos = np.matmul(atom_pos, lattice_matrix)
+        return RawAtomFeature("crystal", atom_pos, atom_type)
+
     def add_atom_and_mol_targets(self, mol_target=None, atom_target=None, mol_id=None):
         if mol_target is not None:
             mol_feats = {"target": mol_target, "index": np.array([mol_id]).reshape(1)}
@@ -163,6 +195,18 @@ class AtomFeatDict:
         self.group_keys = ["[CLS]", "[UNK]", "[MASK]", "[NULL]"]
         for i in range(0, 256):
             self.group_keys.append(f"[TREE_{i}]")
+
+        self.max_num_atom = self.args.max_num_atom
+        if self.args.data_type == "crystal":
+            self.group_keys += [
+                "[COMPONENTS]",
+                "[LATTICE_O]",
+            ]
+            for i in range(self.args.crystal_pxrd):
+                self.group_keys.append(f"[PXRD_{i}]")
+            # count tokens, inclusive for 0 and max_num_atom
+            for i in range(self.max_num_atom + 1):
+                self.group_keys.append(f"[CNT_{i}]")
 
         for key in self.group_keys:
             self.add_token(key)
