@@ -26,6 +26,10 @@ Uni-3DAR is an autoregressive model that unifies various 3D tasks. In particular
 News
 ----
 
+**2025-04-09:** We have released the core model along with the MP20 (Crystal) training and inference pipeline.
+
+**2025-04-07:** We have released the core model along with the DRUG training and inference pipeline.
+
 **2025-03-21:** We have released the core model along with the QM9 training and inference pipeline.
 
 
