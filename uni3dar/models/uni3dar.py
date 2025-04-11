@@ -402,6 +402,7 @@ class Uni3DAR(BaseUnicoreModel):
             self.space_emb = None
 
     def init_crystal_cond_embeding(self):
+        self.atom_lattice_id = None
         if self.args.data_type == "crystal":
             self.atom_components_id = self.dictionary["[COMPONENTS]"]
             self.atom_lattice_id = self.dictionary["[LATTICE_O]"]
