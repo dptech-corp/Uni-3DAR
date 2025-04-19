@@ -46,6 +46,8 @@ class SampleClusterDataset(BaseWrapperDataset):
     def __cached_item__(self, index: int, epoch: int):
         index = self.cluster2id[index]
         data = deepcopy(self.dataset[index])
+        if "uid" not in data:
+            data["uid"] = index
         return data
 
     def __getitem__(self, index: int):

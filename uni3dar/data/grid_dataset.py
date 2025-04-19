@@ -10,6 +10,7 @@ from unicore.data import BaseWrapperDataset
 from . import data_utils, grid_utils
 from .base_grid_dataset import BaseGridDataset
 from .crystal_grid_dataset import CrystalGridDataset
+from .protein_grid_dataset import ProteinGridDataset
 
 
 class GridDataset(BaseWrapperDataset):
@@ -30,10 +31,12 @@ class GridDataset(BaseWrapperDataset):
         dataset_args = (dataset, seed, dictionary, atom_key, pos_key, is_train, args)
         self.base_grid_dataset = BaseGridDataset(*dataset_args)
         self.crystal_grid_dataset = CrystalGridDataset(*dataset_args)
+        self.protein_grid_dataset = ProteinGridDataset(*dataset_args)
 
         self.datasets = {
             "molecule": self.base_grid_dataset,
             "crystal": self.crystal_grid_dataset,
+            "protein": self.protein_grid_dataset,
         }
 
     def set_epoch(self, epoch, **unused):
