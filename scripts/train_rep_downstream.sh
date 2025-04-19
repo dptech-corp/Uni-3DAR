@@ -47,37 +47,36 @@ echo "OMPI_COMM_WORLD_SIZE" $OMPI_COMM_WORLD_SIZE
 echo "OMPI_COMM_WORLD_RANK" $OMPI_COMM_WORLD_RANK
 echo "MASTER_IP" $MASTER_IP
 echo "MASTER_PORT" $MASTER_PORT
-echo ${task_name:4}
 echo $task_name
 
 [ -z "${wandb_project}" ] && wandb_project=your_wandb_project
 
 
-if [ "${task_name:4}" == "homo_s1" ] || [ "${task_name:4}" == "lumo_s1" ] || [ "${task_name:4}" == "gap_s1" ] || [ "${task_name:4}" == "E1_CC2" ] || [ "${task_name:4}" == "E2_CC2" ] || [ "${task_name:4}" == "f1_CC2" ] || [ "${task_name:4}" == "f2_CC2" ] || [ "${task_name:4}" == "Dipmom_Debye" ] || [ "${task_name:4}" == "aIP_eV" ] || [ "${task_name:4}" == "D3_disp_corr_eV" ] ; then
+if [ "${task_name}" == "homo" ] || [ "${task_name}" == "lumo" ] || [ "${task_name}" == "gap" ] || [ "${task_name}" == "E1_CC2" ] || [ "${task_name}" == "E2_CC2" ] || [ "${task_name}" == "f1_CC2" ] || [ "${task_name}" == "f2_CC2" ] || [ "${task_name}" == "Dipmom_Debye" ] || [ "${task_name}" == "aIP_eV" ] || [ "${task_name}" == "D3_disp_corr_eV" ] ; then
 	# 单卡a100
     metric="valid_mol_target_reg_agg_mae"
     batch_size_t=64
     n_gpu=1
     more_args=$more_args" --merge-level 8 --data-type molecule --grid-len 0.24 --recycle 1 --mol-target-key target --mol-num-classes 1 --mol-target-normalize --loss-ratio-mol-target 50"
-    if [ "${task_name:4}" == "homo_s1" ]; then
+    if [ "${task_name}" == "homo" ]; then
         more_args=$more_args" --mol-target-idx 2"
-    elif [ "${task_name:4}" == "lumo_s1" ]; then
+    elif [ "${task_name}" == "lumo" ]; then
         more_args=$more_args" --mol-target-idx 3"
-    elif [ "${task_name:4}" == "gap_s1" ]; then
+    elif [ "${task_name}" == "gap" ]; then
         more_args=$more_args" --mol-target-idx 4"
-    elif [ "${task_name:4}" == "E1_CC2" ]; then
+    elif [ "${task_name}" == "E1_CC2" ]; then
         more_args=$more_args" --mol-target-idx 0"
-    elif [ "${task_name:4}" == "E2_CC2" ]; then
+    elif [ "${task_name}" == "E2_CC2" ]; then
         more_args=$more_args" --mol-target-idx 1"
-    elif [ "${task_name:4}" == "f1_CC2" ]; then
+    elif [ "${task_name}" == "f1_CC2" ]; then
         more_args=$more_args" --mol-target-idx 2"
-    elif [ "${task_name:4}" == "f2_CC2" ]; then
+    elif [ "${task_name}" == "f2_CC2" ]; then
         more_args=$more_args" --mol-target-idx 3"
-    elif [ "${task_name:4}" == "Dipmom_Debye" ]; then
+    elif [ "${task_name}" == "Dipmom_Debye" ]; then
         more_args=$more_args" --mol-target-idx 3"
-    elif [ "${task_name:4}" == "aIP_eV" ]; then
+    elif [ "${task_name}" == "aIP_eV" ]; then
         more_args=$more_args" --mol-target-idx 9"
-    elif [ "${task_name:4}" == "D3_disp_corr_eV" ]; then
+    elif [ "${task_name}" == "D3_disp_corr_eV" ]; then
         more_args=$more_args" --mol-target-idx 10"
     fi
     

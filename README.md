@@ -175,6 +175,86 @@ base_dir=/your_folder_to_save/ batch_size=8 bash scripts/train_mp20_pxrd.sh ./mp
 Note: By default, we use 8 GPUs, with a total batch size of `8 × 8 = 64`. You may adjust the batch size based on your available GPU configuration.
 
 
+Reproducing Results on Molecular Property Prediction
+-------------------------------------
+
+To reproduce results on the molecular property prediction downstream tasks using our pretrained model or pretrain from scratch, please follow the instructions below.
+
+### Download Pretrained Model and Dataset
+
+Download the pretrained checkpoint (`mol_pretrain_weight.pt`) and the dataset archive (`mol_downstream.tar.gz`) from our [Hugging Face repository](https://huggingface.co/dptech/Uni-3DAR/tree/main). 
+
+First, you should extract the dataset, which will be used in both training and evaluation:
+
+```
+tar -xzvf mol_downstream.tar.gz
+```
+
+### Finetune with Pretrained Model
+
+For HOMO, LUMO and GAP:
+
+```
+task=homo # or lumo, gap
+bash scripts/train_rep_downstream.sh $dataset_path/scaffold_ood_qm9 $your_folder_to_save $task mol_pretrain_weight.pt "5e-5 1e-4" "32 64" "200" "0.0" "0.06" "0 1 2" 
+```
+
+For E1-CC2, E2-CC2, f1-CC2 and f2-CC2:
+ 
+```
+task=E1-CC2 # or E2-CC2, f1-CC2, f2-CC2
+bash scripts/train_rep_downstream.sh $dataset_path/scaffold_ood_qm8 $your_folder_to_save $task mol_pretrain_weight.pt "5e-5 1e-4" "32 64" "200" "0.0" "0.06" "0 1 2" 
+```
+
+For Dipmom, aIP and D3 Dispersion Corrections:
+```
+task=Dipmom_Debye # or aIP_eV, D3_disp_corr_eV
+bash scripts/train_rep_downstream.sh $dataset_path/scaffold_ood_compas1d_cam $your_folder_to_save $task mol_pretrain_weight.pt "5e-5 1e-4" "32 64" "200" "0.0" "0.06" "0 1 2" 
+```
+
+### Pretrain from Scratch
+
+```
+bash scripts/pretrain_mol.sh $your_pretrain_data $your_folder_to_save
+```
+
+Note: By default, we use 8 GPUs for pretrain with a total batch size of `8 × 16 = 128` and 1 GPU for finetune. You may adjust the batch size based on your available GPU configuration.
+
+
+
+Reproducing Results on Protein Pocket Prediction
+-------------------------------------
+
+To reproduce results on the protein pocket prediction downstream tasks using our pretrained model or pretrain from scratch, please follow the instructions below.
+
+### Download Pretrained Model and Dataset
+
+Download the pretrained checkpoint (`protein_pretrain_weight.pt`) and the dataset archive (`protein_downstream.tar.gz`) from our [Hugging Face repository](https://huggingface.co/dptech/Uni-3DAR/tree/main). 
+
+First, you should extract the dataset, which will be used in both training and evaluation:
+
+```
+tar -xzvf protein_downstream.tar.gz
+```
+
+### Finetune with Pretrained Model
+
+
+```
+task=binding
+bash scripts/train_rep_downstream.sh $dataset_path/binding $your_folder_to_save $task protein_pretrain_weight.pt "5e-5 1e-4" "32 64" "100" "0.1" "0.06" "0" 
+```
+
+### Pretrain from Scratch
+
+```
+bash scripts/pretrain_protein.sh $your_pretrain_data $your_folder_to_save
+```
+
+Note: By default, we use 16 GPUs for pretrain with a total batch size of `16 × 4 = 64` and 8 GPUs for finetune. You may adjust the batch size based on your available GPU configuration.
+
+
+
 Citation
 --------
 
