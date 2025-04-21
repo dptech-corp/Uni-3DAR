@@ -212,13 +212,7 @@ task=Dipmom_Debye # or aIP_eV, D3_disp_corr_eV
 bash scripts/train_rep_downstream.sh $dataset_path/scaffold_ood_compas1d_cam $your_folder_to_save $task mol_pretrain_weight.pt "5e-5 1e-4" "32 64" "200" "0.0" "0.06" "0 1 2" 
 ```
 
-### Pretrain from Scratch
-
-```
-bash scripts/pretrain_mol.sh $your_pretrain_data $your_folder_to_save
-```
-
-Note: By default, we use 8 GPUs for pretrain with a total batch size of `8 × 16 = 128` and 1 GPU for finetune. You may adjust the batch size based on your available GPU configuration.
+Note: By default, we use 1 GPU for finetune.
 
 
 
@@ -245,13 +239,7 @@ task=binding
 bash scripts/train_rep_downstream.sh $dataset_path/binding $your_folder_to_save $task protein_pretrain_weight.pt "5e-5 1e-4" "32 64" "100" "0.1" "0.06" "0" 
 ```
 
-### Pretrain from Scratch
-
-```
-bash scripts/pretrain_protein.sh $your_pretrain_data $your_folder_to_save
-```
-
-Note: By default, we use 16 GPUs for pretrain with a total batch size of `16 × 4 = 64` and 8 GPUs for finetune. You may adjust the batch size based on your available GPU configuration.
+Note: By default, we use 8 GPUs for finetune. You may adjust the batch size based on your available GPU configuration.
 
 
 
