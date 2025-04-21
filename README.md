@@ -178,7 +178,7 @@ Note: By default, we use 8 GPUs, with a total batch size of `8 × 8 = 64`. You m
 Reproducing Results on Molecular Property Prediction
 -------------------------------------
 
-To reproduce results on the molecular property prediction downstream tasks using our pretrained model or pretrain from scratch, please follow the instructions below.
+To reproduce results on the molecular property prediction downstream tasks using our pretrained model, please follow the instructions below.
 
 ### Download Pretrained Model and Dataset
 
@@ -219,7 +219,7 @@ Note: By default, we use 1 GPU for finetune.
 Reproducing Results on Protein Pocket Prediction
 -------------------------------------
 
-To reproduce results on the protein pocket prediction downstream tasks using our pretrained model or pretrain from scratch, please follow the instructions below.
+To reproduce results on the protein pocket prediction downstream tasks using our pretrained model, please follow the instructions below.
 
 ### Download Pretrained Model and Dataset
 
